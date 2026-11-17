@@ -4,7 +4,7 @@
 // 1-way) counts misses per frame so SRAM cost can be estimated without Verilator.
 //
 // usage: iss <fw.bin> [--max Minstr] [--icache B] [--dcache B] [--prof file: pc + ra every 256 instr] [--prof-from N] [--dump-at F file: memory + resume stub after frame F]
-// prints "F,<frame>,<instr>,<ops>,<imiss>,<dmiss_rd>,<stores>" per frame.
+// prints "F,<frame>,<instr>,<ops>,<imiss>,<dmiss_rd>,<stores>,<screen hash>" per frame.
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
@@ -53,7 +53,7 @@ int main(int argc, char **argv) {
 
     uint32_t x[32] = {0}, pc = 0;
     uint64_t ninstr = 0, last_i = 0, last_im = 0, last_dm = 0, stores = 0, last_st = 0;
-    uint32_t last_ops = 0;
+    uint32_t last_ops = 0, last_hash = 0;
     int exit_code = -1;
     std::string line;
 
@@ -73,15 +73,16 @@ int main(int argc, char **argv) {
             uint32_t o = a & 0xff;
             if (o == 0x00) { char c = (char)v; if (c == '\n') { printf("%s\n", line.c_str()); line.clear(); } else line += c; }
             else if (o == 0x04) {
-                printf("F,%u,%llu,%u,%llu,%llu,%llu\n", v, (unsigned long long)(ninstr - last_i), last_ops,
+                printf("F,%u,%llu,%u,%llu,%llu,%llu,%u\n", v, (unsigned long long)(ninstr - last_i), last_ops,
                        (unsigned long long)(ic.miss - last_im), (unsigned long long)(dc.miss - last_dm),
-                       (unsigned long long)(stores - last_st));
+                       (unsigned long long)(stores - last_st), last_hash);
                 last_i = ninstr; last_im = ic.miss; last_dm = dc.miss; last_st = stores;
                 if (prof_frames && (int)v + 1 >= prof_from) sampling = true;
                 if ((int)v == dump_at) dump_now = true;
             }
             else if (o == 0x08) exit_code = (int)v;
             else if (o == 0x10) last_ops = v;
+            else if (o == 0x18) last_hash = v;
             else if (o == 0x14) {
                 printf("CKPT %llu\n", (unsigned long long)ninstr);
                 last_i = ninstr; last_im = ic.miss; last_dm = dc.miss; last_st = stores;

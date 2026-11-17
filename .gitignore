@@ -6,3 +6,6 @@ src/sim/obj_*
 src/sim/ckpt/
 src/sim/iss
 src/sim/*.txt
+src/bench/bench-v
+src/bench/lstate_seed0.c
+src/bench/lpico8lib_fix.c

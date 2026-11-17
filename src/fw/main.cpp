@@ -18,6 +18,10 @@
 #undef class
 #include "lua.h"
 #include "mmio.h"
+#include "fbhash.h"
+#ifndef FBHASH
+#define FBHASH 0
+#endif
 
 #ifndef FRAMES
 #define FRAMES 60
@@ -41,6 +45,26 @@ static void count_hook(lua_State *L, lua_Debug *ar) {
     printf("HOOK %lu %s:%d\n", (unsigned long)g_ops, ar->short_src, ar->currentline);
 }
 #endif
+#if LINES
+static uint32_t g_ops;
+
+// debug: trace executed Lua lines (src:line) while g_trace is on
+static int g_trace;
+static void line_hook(lua_State *L, lua_Debug *ar) {
+    if (!g_trace) return;
+    if (ar->event == LUA_HOOKCOUNT) { g_ops += 64; return; }
+    lua_getinfo(L, "Sl", ar);
+    printf("L %s:%d", ar->source[0] == '=' ? "?" : (ar->short_src[9] ? ar->short_src + 9 : ar->short_src), ar->currentline);
+    // numeric locals as fix32 bits
+    for (int i = 1; i < 40; i++) {
+        const char *nm = lua_getlocal(L, ar, i);
+        if (!nm) break;
+        if (lua_type(L, -1) == LUA_TNUMBER) printf(" %s=%08lx", nm, (unsigned long)(uint32_t)lua_tonumber(L, -1).bits());
+        lua_pop(L, 1);
+    }
+    printf("\n");
+}
+#endif
 
 int main() {
     uint32_t c0 = MMIO_CYCLES;
@@ -54,10 +78,13 @@ int main() {
         printf("load failed: %s\n", vm->_cartLoadError.c_str());
         return 1;
     }
-#if OPS_HOOK
+#if LINES
+    lua_sethook(vm->_luaState, line_hook, LUA_MASKLINE | LUA_MASKCOUNT, 64);
+#elif OPS_HOOK
     lua_sethook(vm->_luaState, count_hook, LUA_MASKCOUNT, OPS_HOOK == 2 ? 16384 : 64);
 #endif
     vm->vm_run();
+    vm->api_srand(z8::fix32(1234)); // vm_run seeds rnd from the clock: same seed as the host bench
     uint32_t c2 = MMIO_CYCLES;
     printf("init vm %lu cart %lu cycles\n", (unsigned long)(c1 - c0), (unsigned long)(c2 - c1));
     MMIO_CKPT = 1;
@@ -73,11 +100,18 @@ int main() {
 #if OPS_HOOK
         g_ops = 0;
 #endif
+#if LINES
+        g_trace = f < LINES;
+        if (g_trace) printf("S %d\n", f);
+#endif
         vm->Step();
         if (AUDIO)
             vm->FillAudioBuffer(abuf, 0, 22050 / 60);
 #if OPS_HOOK
         MMIO_OPS = g_ops;
+#endif
+#if FBHASH
+        MMIO_HASH = fb_hash(vm->GetPicoInteralFb(), vm->GetScreenPaletteMap());
 #endif
         MMIO_FRAME = (uint32_t)f;
     }
