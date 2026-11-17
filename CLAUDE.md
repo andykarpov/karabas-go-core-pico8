@@ -11,6 +11,9 @@ PICO-8 itself is proprietary: only clean-room code (fake-08 / zepto-8 / own), no
 ## Layout
 
 - `upstream/fake-08/`: git submodule, jtothebell/fake-08 at 814991a (with its `libs/z8lua` submodule).
+- `src/rtl/vexriscv/`: pre-generated VexRiscv variants (MIT, litex-hub pythondata-cpu-vexriscv 642ecfe), see its README.
+- `src/fw/`: Ф0.2 bench firmware = fake-08 + one cart for rv32im (xPack riscv-none-elf-gcc 15.2.0-1 in `~/opt`). Build fixes live in its Makefile as flags (no upstream edits): `-fwrapv` + `lvm_o2.c` (upstream luaV_execute is `optimize("O0")`), int32_t = int, `LUA_USE_LONGJMP`; `.eh_frame` registered in `syscalls.c`. Last 4 KB of SRAM = resume stub area.
+- `src/sim/`: `iss` (own fast RV32IM ISS: cache model, `--prof`, `--dump-at` frame dump) and `tb_soc` (Verilator VexRiscv on a model of the 2M x16 SRAM, `--rv 0x3ff000` starts from an iss dump; ~1.3 MHz, so fast-forward with iss first). `model.py` / `predict.py` = the Ф0.2 cycle model and forecast.
 - `src/bench/`: Ф0.1 host workload bench (`make`, `make bench-pg` for gprof, `run_bench.sh frames carts...`). The bench reads `Vm` internals through `#define class struct` (bench only).
 
 ## Rules of the core

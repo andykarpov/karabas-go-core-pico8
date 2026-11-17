@@ -1,3 +1,8 @@
 src/bench/bench
 src/bench/bench-pg
 gmon.out
+src/fw/build-*
+src/sim/obj_*
+src/sim/ckpt/
+src/sim/iss
+src/sim/*.txt
