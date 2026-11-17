@@ -1,0 +1,3 @@
+[submodule "upstream/fake-08"]
+	path = upstream/fake-08
+	url = https://github.com/jtothebell/fake-08.git
